@@ -1,7 +1,7 @@
 export const navItems = [
   { name: "About", link: "#about" },
   { name: "Projects", link: "#projects" },
-  { name: "Testimonials", link: "#testimonials" },
+  // { name: "Testimonials", link: "#testimonials" },
   { name: "Contact", link: "#contact" },
 ];
 
@@ -38,7 +38,7 @@ export const gridItems = [
   },
   {
     id: 4,
-    title: "Tech enthusiast with a passion for development.",
+    title: "Tech enthusiast with a passion for development and cloud.",
     description: "",
     className: "lg:col-span-2 md:col-span-3 md:row-span-1",
     imgClassName: "",
@@ -49,7 +49,7 @@ export const gridItems = [
 
   {
     id: 5,
-    title: "Currently building a JS Animation library",
+    title: "Currently Building a SaaS CRM Platform",
     description: "The Inside Scoop",
     className: "md:col-span-3 md:row-span-2",
     imgClassName: "absolute right-0 bottom-0 md:w-96 w-60",
@@ -57,6 +57,7 @@ export const gridItems = [
     img: "/b5.svg",
     spareImg: "/grid.svg",
   },
+
   {
     id: 6,
     title: "Do you want to start a project together?",
@@ -173,29 +174,29 @@ export const companies = [
 export const workExperience = [
   {
     id: 1,
-    title: "Frontend Engineer Intern",
-    desc: "Assisted in the development of a web-based platform using React.js, enhancing interactivity.",
+    title: "Cloud Architect - Fortune 500 Company",
+    desc: "Led the architecture and successful migration of a Fortune 500 company's web platforms from .NET to a modern Jamstack architecture using Gatsby, React, and AWS, significantly enhancing site performance and scalability.",
     className: "md:col-span-2",
     thumbnail: "/exp1.svg",
   },
   {
     id: 2,
-    title: "Mobile App Dev - JSM Tech",
-    desc: "Designed and developed mobile app for both iOS & Android platforms using React Native.",
-    className: "md:col-span-2", // change to md:col-span-2
+    title: "Data Warehouse Migration Architect - Major Bank",
+    desc: "Architected and executed the migration of one of the largest data warehouses for a leading bank to Google Cloud Platform (GCP), including a complete overhaul of ETL processes, resulting in improved data processing efficiency and cost savings.",
+    className: "md:col-span-2",
     thumbnail: "/exp2.svg",
   },
   {
     id: 3,
-    title: "Freelance App Dev Project",
-    desc: "Led the dev of a mobile app for a client, from initial concept to deployment on app stores.",
-    className: "md:col-span-2", // change to md:col-span-2
+    title: "Legacy Code Migration Specialist",
+    desc: "Managed the migration of legacy .NET applications to modern JavaScript-based, serverless architectures, driving innovation and reducing operational costs across multiple projects.",
+    className: "md:col-span-2",
     thumbnail: "/exp3.svg",
   },
   {
     id: 4,
-    title: "Lead Frontend Developer",
-    desc: "Developed and maintained user-facing features using modern frontend technologies.",
+    title: "Kubernetes & GitOps Architect - Banking Sector",
+    desc: "Designed and implemented a comprehensive Kubernetes architecture with GitOps for a major bank, leveraging GCP to enhance deployment efficiency, security, and scalability in a highly regulated environment.",
     className: "md:col-span-2",
     thumbnail: "/exp4.svg",
   },
