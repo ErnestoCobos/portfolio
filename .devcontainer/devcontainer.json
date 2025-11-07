@@ -1,7 +1,7 @@
 {
   "name": "Next.js Portfolio",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
-  
+
   "features": {
     "ghcr.io/devcontainers-extra/features/pnpm:1": {
       "version": "latest"
