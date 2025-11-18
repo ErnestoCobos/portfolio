@@ -2,7 +2,8 @@ name: Test Financial Assistant
 
 on:
   push:
-    branches: [main, master, feature/financial-assistant]
+    branches: 
+      - 'feature/**'
     paths:
       - 'supabase/**'
       - 'lib/supabase.ts'
