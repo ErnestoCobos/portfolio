@@ -1,0 +1,431 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Financial Assistant API",
+        "description": "API for managing personal finances including transactions, budgets, debts, and receipt processing",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://bioenchgdmbthnwfctkn.supabase.co/functions/v1"
+        }
+    ],
+    "paths": {
+        "/get-financial-summary": {
+            "post": {
+                "operationId": "getFinancialSummary",
+                "summary": "Get comprehensive financial summary",
+                "description": "Returns overall financial status including balances, income, expenses, debts, and budget status",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "period": {
+                                        "type": "string",
+                                        "enum": [
+                                            "monthly",
+                                            "yearly",
+                                            "all"
+                                        ],
+                                        "default": "monthly"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Financial summary",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinancialSummary"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/manage-transaction": {
+            "post": {
+                "operationId": "manageTransaction",
+                "summary": "Add, update, or delete transactions",
+                "description": "Manage expenses and income transactions",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TransactionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Transaction processed successfully"
+                    }
+                }
+            }
+        },
+        "/manage-budget": {
+            "post": {
+                "operationId": "manageBudget",
+                "summary": "Create or update budget",
+                "description": "Set monthly or yearly budgets for expense categories",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "category",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "category": {
+                                        "type": "string",
+                                        "description": "Category name (e.g., 'Comida', 'Transporte')"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "description": "Budget amount in MXN"
+                                    },
+                                    "period": {
+                                        "type": "string",
+                                        "enum": [
+                                            "monthly",
+                                            "yearly"
+                                        ],
+                                        "default": "monthly"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Budget created or updated"
+                    }
+                }
+            }
+        },
+        "/get-budget-status": {
+            "post": {
+                "operationId": "getBudgetStatus",
+                "summary": "Get current budget status",
+                "description": "Returns budget status with spent amounts and remaining budget",
+                "requestBody": {
+                    "required": false
+                },
+                "responses": {
+                    "200": {
+                        "description": "Budget status"
+                    }
+                }
+            }
+        },
+        "/manage-debt": {
+            "post": {
+                "operationId": "manageDebt",
+                "summary": "Add debts or record payments",
+                "description": "Manage credit cards, loans, and other debts",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DebtRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Debt processed successfully"
+                    }
+                }
+            }
+        },
+        "/upload-receipt": {
+            "post": {
+                "operationId": "uploadReceipt",
+                "summary": "Upload and process receipt",
+                "description": "Upload receipt image/PDF for OCR processing and automatic transaction matching",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "Receipt image (JPG, PNG, PDF)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Receipt processed with extracted data"
+                    }
+                }
+            }
+        },
+        "/classify-products": {
+            "post": {
+                "operationId": "classifyProducts",
+                "summary": "Classify products from receipt",
+                "description": "Learn and classify products interactively based on user input",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "document_id",
+                                    "unclassified_items"
+                                ],
+                                "properties": {
+                                    "document_id": {
+                                        "type": "string",
+                                        "description": "Document UUID from upload-receipt"
+                                    },
+                                    "unclassified_items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "line_item_id",
+                                                "description",
+                                                "user_answer"
+                                            ],
+                                            "properties": {
+                                                "line_item_id": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "description": "Raw text from receipt"
+                                                },
+                                                "user_answer": {
+                                                    "type": "string",
+                                                    "description": "User's clarification of what the product is"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Products classified and learned"
+                    }
+                }
+            }
+        },
+        "/get-price-insights": {
+            "post": {
+                "operationId": "getPriceInsights",
+                "summary": "Get price trend analysis",
+                "description": "Analyze price changes and compare prices across merchants",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "product_id": {
+                                        "type": "string",
+                                        "description": "Optional product UUID to filter by"
+                                    },
+                                    "merchant": {
+                                        "type": "string",
+                                        "description": "Optional merchant name to filter by"
+                                    },
+                                    "days_back": {
+                                        "type": "integer",
+                                        "default": 30,
+                                        "description": "Number of days to analyze"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Price insights and recommendations"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "FinancialSummary": {
+                "type": "object",
+                "properties": {
+                    "period": {
+                        "type": "string"
+                    },
+                    "total_balance": {
+                        "type": "number"
+                    },
+                    "monthly_income": {
+                        "type": "number"
+                    },
+                    "monthly_expenses": {
+                        "type": "number"
+                    },
+                    "net_income": {
+                        "type": "number"
+                    },
+                    "active_debts": {
+                        "type": "number"
+                    },
+                    "budget_status": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "savings_rate": {
+                        "type": "number"
+                    }
+                }
+            },
+            "TransactionRequest": {
+                "type": "object",
+                "required": [
+                    "type",
+                    "amount"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "add",
+                            "update",
+                            "delete"
+                        ],
+                        "default": "add"
+                    },
+                    "transaction_id": {
+                        "type": "string",
+                        "description": "Required for update/delete actions"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "expense",
+                            "income"
+                        ]
+                    },
+                    "amount": {
+                        "type": "number",
+                        "description": "Amount in MXN"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category name (e.g., 'Comida')"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "merchant": {
+                        "type": "string",
+                        "description": "Merchant or store name"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Date in YYYY-MM-DD format"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "description": "Payment method name or last 4 digits"
+                    },
+                    "is_recurring": {
+                        "type": "boolean",
+                        "default": false
+                    }
+                }
+            },
+            "DebtRequest": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "add",
+                            "pay"
+                        ]
+                    },
+                    "debt_id": {
+                        "type": "string",
+                        "description": "Required for 'pay' action"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Debt name (required for 'add')"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "credit_card",
+                            "loan",
+                            "mortgage"
+                        ],
+                        "description": "Required for 'add'"
+                    },
+                    "total_amount": {
+                        "type": "number",
+                        "description": "Total debt amount (required for 'add')"
+                    },
+                    "interest_rate": {
+                        "type": "number",
+                        "description": "Annual interest rate percentage"
+                    },
+                    "minimum_payment": {
+                        "type": "number"
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "payment_amount": {
+                        "type": "number",
+                        "description": "Payment amount (required for 'pay')"
+                    },
+                    "payment_date": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            }
+        }
+    }
+}

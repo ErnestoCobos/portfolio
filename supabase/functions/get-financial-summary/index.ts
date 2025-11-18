@@ -1,0 +1,153 @@
+// Financial Summary Edge Function
+// Returns overall financial status for the user
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
+
+interface FinancialSummaryRequest {
+    period?: 'monthly' | 'yearly' | 'all'
+}
+
+Deno.serve(async (req) => {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+    try {
+        // Create Supabase client
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        )
+
+        // Get user from JWT
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+        if (authError || !user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+        }
+
+        const { period = 'monthly' }: FinancialSummaryRequest = await req.json()
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        switch (period) {
+            case 'yearly':
+                startDate = new Date(now.getFullYear(), 0, 1)
+                break
+            case 'all':
+                startDate = new Date(0)
+                break
+            default: // monthly
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        }
+
+        // Get total balance across all accounts
+        const { data: accounts } = await supabaseClient
+            .from('accounts')
+            .select('balance')
+            .eq('user_id', user.id)
+
+        const totalBalance = accounts?.reduce((sum, acc) => sum + Number(acc.balance), 0) ?? 0
+
+        // Get income and expenses for period
+        const { data: transactions } = await supabaseClient
+            .from('transactions')
+            .select('type, amount')
+            .eq('user_id', user.id)
+            .gte('date', startDate.toISOString().split('T')[0])
+
+        const income = transactions
+            ?.filter(t => t.type === 'income')
+            .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0
+
+        const expenses = transactions
+            ?.filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0
+
+        // Get active debts
+        const { data: debts } = await supabaseClient
+            .from('debts')
+            .select('remaining_amount')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+
+        const totalDebt = debts?.reduce((sum, d) => sum + Number(d.remaining_amount), 0) ?? 0
+
+        // Get budget status
+        const { data: budgets } = await supabaseClient
+            .from('budgets')
+            .select(`
+        id,
+        amount,
+        category_id,
+        categories (
+          name,
+          icon
+        )
+      `)
+            .eq('user_id', user.id)
+            .eq('period', period === 'yearly' ? 'yearly' : 'monthly')
+
+        const budgetStatus = await Promise.all(
+            (budgets ?? []).map(async (budget) => {
+                const { data: categoryTransactions } = await supabaseClient
+                    .from('transactions')
+                    .select('amount')
+                    .eq('user_id', user.id)
+                    .eq('category_id', budget.category_id)
+                    .eq('type', 'expense')
+                    .gte('date', startDate.toISOString().split('T')[0])
+
+                const spent = categoryTransactions?.reduce((sum, t) => sum + Number(t.amount), 0) ?? 0
+                const remaining = Number(budget.amount) - spent
+                const percentage = Math.round((spent / Number(budget.amount)) * 100)
+
+                return {
+                    category: budget.categories?.name ?? 'Unknown',
+                    icon: budget.categories?.icon,
+                    budget: Number(budget.amount),
+                    spent,
+                    remaining,
+                    percentage: Math.min(percentage, 100)
+                }
+            })
+        )
+
+        // Get upcoming debt payments
+        const { data: upcomingDebts } = await supabaseClient
+            .from('debts')
+            .select('name, minimum_payment, due_date')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .gte('due_date', now.toISOString().split('T')[0])
+            .order('due_date', { ascending: true })
+            .limit(5)
+
+        const response = {
+            period,
+            total_balance: totalBalance,
+            monthly_income: period === 'monthly' ? income : income / 12,
+            monthly_expenses: period === 'monthly' ? expenses : expenses / 12,
+            net_income: income - expenses,
+            active_debts: totalDebt,
+            budget_status: budgetStatus,
+            upcoming_payments: upcomingDebts ?? [],
+            savings_rate: income > 0 ? Math.round(((income - expenses) / income) * 100) : 0
+        }
+
+        return new Response(JSON.stringify(response), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+    }
+})
