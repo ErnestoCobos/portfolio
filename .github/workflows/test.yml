@@ -1,0 +1,159 @@
+name: Test Financial Assistant
+
+on:
+  push:
+    branches: [main, master, feature/financial-assistant]
+    paths:
+      - 'supabase/**'
+      - 'lib/supabase.ts'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'supabase/**'
+      - 'lib/supabase.ts'
+
+jobs:
+  test-database:
+    name: Database Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Verify database is running
+        run: |
+          supabase status
+          
+      - name: Run database migrations
+        run: supabase db reset --no-seed
+        
+      - name: Seed test data
+        run: |
+          # Las migraciones ya incluyen seed_categories
+          echo "✅ Database seeded via migrations"
+
+      - name: Test database schema
+        run: |
+          # Verificar que todas las tablas existen
+          psql "$DATABASE_URL" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" || exit 1
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
+
+  test-functions:
+    name: Edge Functions Tests
+    runs-on: ubuntu-latest
+    needs: test-database
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run unit tests
+        run: deno test --allow-all supabase/functions/**/*.test.ts
+        
+      - name: Generate coverage report
+        run: |
+          deno test --allow-all --coverage=coverage/ supabase/functions/**/*.test.ts
+          deno coverage coverage/ --lcov --output=coverage/lcov.info
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test-database
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Wait for Supabase to be ready
+        run: |
+          echo "Waiting for Supabase to be ready..."
+          sleep 5
+          supabase status
+
+      - name: Get Supabase credentials
+        id: supabase-creds
+        run: |
+          echo "SUPABASE_URL=$(supabase status | grep 'API URL' | awk '{print $3}')" >> $GITHUB_OUTPUT
+          echo "SUPABASE_ANON_KEY=$(supabase status | grep 'anon key' | awk '{print $3}')" >> $GITHUB_OUTPUT
+
+      - name: Test Edge Functions locally
+        run: |
+          # Start functions server in background
+          supabase functions serve &
+          FUNCTIONS_PID=$!
+          
+          sleep 5
+          
+          # Test get-financial-summary
+          curl -i --fail \
+            --request POST 'http://localhost:54321/functions/v1/get-financial-summary' \
+            --header "Authorization: Bearer ${{ steps.supabase-creds.outputs.SUPABASE_ANON_KEY }}" \
+            --header 'Content-Type: application/json' \
+            --data '{"period": "monthly"}'
+          
+          # Stop functions server
+          kill $FUNCTIONS_PID || true
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
+
+  lint:
+    name: Lint TypeScript
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Lint TypeScript files
+        run: deno lint supabase/functions/
+        continue-on-error: true
+
+      - name: Format check
+        run: deno fmt --check supabase/functions/
+        continue-on-error: true

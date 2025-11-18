@@ -1,0 +1,33 @@
+{
+    "tasks": {
+        "test": "deno test --allow-all supabase/functions/**/*.test.ts",
+        "test:watch": "deno test --allow-all --watch supabase/functions/**/*.test.ts",
+        "test:coverage": "deno test --allow-all --coverage=coverage/ supabase/functions/**/*.test.ts",
+        "coverage": "deno coverage coverage/ --lcov --output=coverage/lcov.info",
+        "coverage:html": "deno coverage coverage/ --html && open coverage/html/index.html",
+        "test:local": "./scripts/test-local.sh",
+        "supabase:start": "supabase start",
+        "supabase:stop": "supabase stop",
+        "supabase:reset": "supabase db reset",
+        "supabase:status": "supabase status",
+        "functions:serve": "supabase functions serve"
+    },
+    "lint": {
+        "files": {
+            "exclude": [
+                "node_modules",
+                ".next",
+                "coverage"
+            ]
+        }
+    },
+    "fmt": {
+        "files": {
+            "exclude": [
+                "node_modules",
+                ".next",
+                "coverage"
+            ]
+        }
+    }
+}
