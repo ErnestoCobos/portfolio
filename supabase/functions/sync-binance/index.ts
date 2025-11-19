@@ -3,14 +3,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { crypto } from 'https://deno.land/std@0.168.0/crypto/mod.ts';
 
-// Binance API helper
+// Binance API helper with SOCKS5 proxy support
 async function signedRequest(
   apiKey: string,
   apiSecret: string,
   endpoint: string,
   params: Record<string, string | number> = {}
 ) {
-  const baseUrl = 'https://api.binance.us'; // Changed to Binance.US
+  const baseUrl = 'https://api.binance.com'; // Back to .com with proxy
   const timestamp = Date.now();
 
   // Add timestamp to params
@@ -38,10 +38,23 @@ async function signedRequest(
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  // Make request
+  // Make request with SOCKS5 proxy if configured
   const url = `${baseUrl}${endpoint}?${queryString}&signature=${hexSignature}`;
+
+  // Check for proxy configuration
+  const proxyUrl = Deno.env.get('SOCKS5_PROXY_URL');
+
+  let client;
+  if (proxyUrl) {
+    // Create HTTP client with SOCKS5 proxy
+    client = Deno.createHttpClient({
+      proxy: { url: proxyUrl },
+    });
+  }
+
   const response = await fetch(url, {
     headers: { 'X-MBX-APIKEY': apiKey },
+    client: client, // Use proxy client if configured
   });
 
   if (!response.ok) {
