@@ -44,6 +44,11 @@ async function signedRequest(
     headers: { 'X-MBX-APIKEY': apiKey },
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Binance API error (${response.status}): ${errorText}`);
+  }
+
   return response.json();
 }
 
