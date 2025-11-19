@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ACCOUNTS TABLE
 -- ============================================
 CREATE TABLE accounts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('checking', 'savings', 'investment', 'credit_card')),
@@ -22,7 +22,7 @@ CREATE TABLE accounts (
 -- PAYMENT METHODS TABLE
 -- ============================================
 CREATE TABLE payment_methods (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE payment_methods (
 -- CATEGORIES TABLE
 -- ============================================
 CREATE TABLE categories (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('expense', 'income')),
@@ -50,7 +50,7 @@ CREATE TABLE categories (
 -- TRANSACTIONS TABLE
 -- ============================================
 CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
@@ -74,7 +74,7 @@ CREATE TABLE transactions (
 -- DOCUMENTS TABLE
 -- ============================================
 CREATE TABLE documents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
   file_path TEXT NOT NULL,
@@ -100,7 +100,7 @@ ALTER TABLE transactions
 -- PRODUCTS TABLE (must be before receipt_line_items)
 -- ============================================
 CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
@@ -116,7 +116,7 @@ CREATE TABLE products (
 -- RECEIPT LINE ITEMS TABLE
 -- ============================================
 CREATE TABLE receipt_line_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id) ON DELETE SET NULL,
   line_number INTEGER NOT NULL,
@@ -133,7 +133,7 @@ CREATE TABLE receipt_line_items (
 -- BUDGETS TABLE
 -- ============================================
 CREATE TABLE budgets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   amount DECIMAL(15, 2) NOT NULL,
@@ -148,7 +148,7 @@ CREATE TABLE budgets (
 -- DEBTS TABLE
 -- ============================================
 CREATE TABLE debts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('credit_card', 'loan', 'mortgage')),
@@ -166,7 +166,7 @@ CREATE TABLE debts (
 -- DEBT PAYMENTS TABLE
 -- ============================================
 CREATE TABLE debt_payments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   debt_id UUID NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
   amount DECIMAL(15, 2) NOT NULL,
   payment_date DATE NOT NULL,
@@ -177,7 +177,7 @@ CREATE TABLE debt_payments (
 -- FINANCIAL GOALS TABLE
 -- ============================================
 CREATE TABLE financial_goals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   target_amount DECIMAL(15, 2) NOT NULL,
@@ -192,7 +192,7 @@ CREATE TABLE financial_goals (
 -- MERCHANT PATTERNS TABLE
 -- ============================================
 CREATE TABLE merchant_patterns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   merchant_name TEXT NOT NULL,
   payment_method_id UUID NOT NULL REFERENCES payment_methods(id) ON DELETE CASCADE,
@@ -208,7 +208,7 @@ CREATE TABLE merchant_patterns (
 -- PRODUCT PRICE HISTORY TABLE
 -- ============================================
 CREATE TABLE product_price_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   merchant TEXT NOT NULL,
   price DECIMAL(15, 2) NOT NULL,

@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Vercel
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# DevContainer
+.devcontainer/
+
+# Public assets (usually don't need context from these)
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.gif
+public/**/*.svg
+public/**/*.ico
+public/**/*.woff
+public/**/*.woff2
+public/**/*.ttf
+public/**/*.eot
+
+# Lock files (too large)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Misc
+*.map
