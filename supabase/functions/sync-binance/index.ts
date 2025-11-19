@@ -127,10 +127,65 @@ serve(async req => {
         account = newAccount;
       }
 
+      // Fetch current prices for all assets with balance
+      const assetPrices: Record<string, number> = {};
+      let totalPortfolioValue = 0;
+      const snapshotAssets: Array<{ asset: string; amount: number; value_usd: number }> = [];
+
       for (const balance of balances.balances) {
         const total = parseFloat(balance.free) + parseFloat(balance.locked);
         if (total > 0) {
-          // Upsert balance
+          const asset = balance.asset;
+          let priceUsd = 0;
+
+          // Get price for asset (skip USDT/USDC as they're pegged to $1)
+          if (asset === 'USDT' || asset === 'USDC' || asset === 'BUSD') {
+            priceUsd = 1.0;
+          } else {
+            try {
+              // Try to get price in USDT
+              const priceData = await signedRequest(apiKey, apiSecret, '/api/v3/ticker/price', {
+                symbol: `${asset}USDT`,
+              });
+              priceUsd = parseFloat(priceData.price);
+
+              // Save price to history
+              await supabase.from('crypto_price_history').insert({
+                asset,
+                price_usd: priceUsd,
+                source: 'binance',
+              });
+            } catch (err) {
+              console.log(`Could not fetch price for ${asset}, trying BUSD`);
+              try {
+                const priceData = await signedRequest(apiKey, apiSecret, '/api/v3/ticker/price', {
+                  symbol: `${asset}BUSD`,
+                });
+                priceUsd = parseFloat(priceData.price);
+
+                await supabase.from('crypto_price_history').insert({
+                  asset,
+                  price_usd: priceUsd,
+                  source: 'binance',
+                });
+              } catch (err2) {
+                console.error(`Could not fetch price for ${asset}`);
+                priceUsd = 0;
+              }
+            }
+          }
+
+          assetPrices[asset] = priceUsd;
+          const valueUsd = total * priceUsd;
+          totalPortfolioValue += valueUsd;
+
+          snapshotAssets.push({
+            asset,
+            amount: total,
+            value_usd: valueUsd,
+          });
+
+          // Upsert balance with USD value
           await supabase.from('crypto_balances').upsert(
             {
               user_id: userId,
@@ -139,6 +194,7 @@ serve(async req => {
               free: parseFloat(balance.free),
               locked: parseFloat(balance.locked),
               total: total,
+              value_usd: valueUsd,
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'crypto_account_id,asset' }
@@ -146,6 +202,15 @@ serve(async req => {
           balancesUpdated++;
         }
       }
+
+      // Create portfolio snapshot
+      await supabase.from('portfolio_snapshots').insert({
+        user_id: userId,
+        crypto_account_id: account.id,
+        total_value_usd: totalPortfolioValue,
+        assets_count: balancesUpdated,
+        metadata: { assets: snapshotAssets },
+      });
 
       // 2. Get recent trades (last 7 days)
       const endTime = Date.now();
@@ -211,6 +276,8 @@ serve(async req => {
         exchange: 'binance',
         balances_updated: balancesUpdated,
         new_transactions: transactionsAdded,
+        total_value_usd: totalPortfolioValue,
+        snapshot_saved: true,
       });
     } catch (err) {
       console.error(`Error syncing Binance:`, err);
