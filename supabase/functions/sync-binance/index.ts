@@ -98,9 +98,12 @@ serve(async req => {
 
       let balancesUpdated = 0;
 
-      // Use the user ID directly (since we're using global API keys)
-      // This assumes single-user setup. For multi-user, would need different approach.
-      const userId = '68a52019-0164-4071-8d4e-556ab10aedc0'; // Your user ID
+      // Use the user ID from environment variable
+      const userId = Deno.env.get('DEFAULT_USER_ID');
+
+      if (!userId) {
+        throw new Error('DEFAULT_USER_ID not configured in environment');
+      }
 
       // Get or create crypto_account
       let { data: account } = await supabase
