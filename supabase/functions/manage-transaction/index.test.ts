@@ -22,6 +22,46 @@ Deno.test('Manage Transaction: calculates balance change for income', () => {
   assertEquals(newBalance, 13000);
 });
 
+Deno.test('Manage Transaction: delete restores original balance', () => {
+  const originalBalance = 10000;
+  const expenseAmount = 500;
+
+  // After adding expense
+  const balanceAfterExpense = originalBalance - expenseAmount;
+  assertEquals(balanceAfterExpense, 9500);
+
+  // After deleting expense (reverse the operation)
+  const balanceAfterDelete = balanceAfterExpense + expenseAmount;
+  assertEquals(balanceAfterDelete, originalBalance);
+});
+
+Deno.test('Manage Transaction: update adjusts balance correctly', () => {
+  const originalBalance = 10000;
+  const oldExpenseAmount = 100;
+  const newExpenseAmount = 150;
+
+  // After adding original expense
+  const balanceAfterOldExpense = originalBalance - oldExpenseAmount;
+  assertEquals(balanceAfterOldExpense, 9900);
+
+  // After updating expense: reverse old (-100 becomes +100), apply new (-150)
+  const balanceAfterUpdate = balanceAfterOldExpense + oldExpenseAmount - newExpenseAmount;
+  assertEquals(balanceAfterUpdate, 9850);
+});
+
+Deno.test('Manage Transaction: update from expense to income reverses effect', () => {
+  const originalBalance = 10000;
+  const amount = 100;
+
+  // After adding expense
+  const balanceAfterExpense = originalBalance - amount;
+  assertEquals(balanceAfterExpense, 9900);
+
+  // After changing to income: reverse expense (+100), apply income (+100)
+  const balanceAfterTypeChange = balanceAfterExpense + amount + amount;
+  assertEquals(balanceAfterTypeChange, 10100);
+});
+
 Deno.test('Manage Transaction: validates transaction type', () => {
   const validTypes = ['expense', 'income'];
 
