@@ -63,113 +63,146 @@ serve(async req => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all active crypto accounts
-    const { data: accounts, error: accountsError } = await supabase
-      .from('crypto_accounts')
-      .select('*')
-      .eq('status', 'active')
-      .eq('exchange', 'binance');
+    // Get Binance credentials from Supabase secrets
+    const apiKey = Deno.env.get('BINANCE_API_KEY');
+    const apiSecret = Deno.env.get('BINANCE_SECRET_KEY');
 
-    if (accountsError) throw accountsError;
+    if (!apiKey || !apiSecret) {
+      throw new Error('Binance credentials not configured in Supabase secrets');
+    }
+
+    // Get user ID from auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
 
     const results = [];
 
-    for (const account of accounts) {
-      try {
-        // Decrypt API credentials
-        const decrypted = JSON.parse(atob(account.api_key_encrypted));
-        const { api_key, api_secret } = decrypted;
+    try {
+      // 1. Get account balances
+      const balances = await signedRequest(apiKey, apiSecret, '/api/v3/account');
 
-        // 1. Get account balances
-        const balances = await signedRequest(api_key, api_secret, '/api/v3/account');
+      let balancesUpdated = 0;
 
-        let balancesUpdated = 0;
-        for (const balance of balances.balances) {
-          const total = parseFloat(balance.free) + parseFloat(balance.locked);
-          if (total > 0) {
-            // Upsert balance
-            await supabase.from('crypto_balances').upsert(
-              {
-                user_id: account.user_id,
-                crypto_account_id: account.id,
-                asset: balance.asset,
-                free: parseFloat(balance.free),
-                locked: parseFloat(balance.locked),
-                total: total,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'crypto_account_id,asset' }
-            );
-            balancesUpdated++;
-          }
-        }
+      // Get or create crypto account for this user
+      const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+      const userId = authUser?.user?.id;
 
-        // 2. Get recent trades (last 7 days)
-        const endTime = Date.now();
-        const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
-
-        let transactionsAdded = 0;
-
-        // For simplicity, we'll get trades for major pairs (BTC, ETH, USDT, etc.)
-        const majorPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT'];
-
-        for (const symbol of majorPairs) {
-          try {
-            const trades = await signedRequest(api_key, api_secret, '/api/v3/myTrades', {
-              symbol,
-              startTime,
-              endTime,
-              limit: 100,
-            });
-
-            for (const trade of trades) {
-              // Check if transaction already exists
-              const { data: existing } = await supabase
-                .from('crypto_transactions')
-                .select('id')
-                .eq('external_id', `trade_${trade.id}`)
-                .single();
-
-              if (!existing) {
-                const isBuy = trade.isBuyer;
-                const baseAsset = symbol.replace('USDT', '').replace('BUSD', '');
-
-                await supabase.from('crypto_transactions').insert({
-                  user_id: account.user_id,
-                  crypto_account_id: account.id,
-                  external_id: `trade_${trade.id}`,
-                  type: isBuy ? 'buy' : 'sell',
-                  asset: baseAsset,
-                  amount: parseFloat(trade.qty),
-                  price_usd: parseFloat(trade.price),
-                  total_usd: parseFloat(trade.quoteQty),
-                  fee_asset: trade.commissionAsset,
-                  fee_amount: parseFloat(trade.commission),
-                  transaction_time: new Date(trade.time).toISOString(),
-                });
-                transactionsAdded++;
-              }
-            }
-          } catch (err) {
-            console.error(`Error fetching trades for ${symbol}: `, err);
-          }
-        }
-
-        // Update last synced
-        await supabase
-          .from('crypto_accounts')
-          .update({ last_synced_at: new Date().toISOString() })
-          .eq('id', account.id);
-
-        results.push({
-          exchange: 'binance',
-          balances_updated: balancesUpdated,
-          new_transactions: transactionsAdded,
-        });
-      } catch (err) {
-        console.error(`Error syncing account ${account.id}: `, err);
-        results.push({ account: account.id, error: err.message });
+      if (!userId) {
+        throw new Error('Could not get user ID');
       }
+
+      // Get or create crypto_account
+      let { data: account } = await supabase
+        .from('crypto_accounts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('exchange', 'binance')
+        .single();
+
+      if (!account) {
+        const { data: newAccount } = await supabase
+          .from('crypto_accounts')
+          .insert({
+            user_id: userId,
+            exchange: 'binance',
+            api_key_encrypted: 'using_env_secrets',
+            status: 'active',
+          })
+          .select()
+          .single();
+        account = newAccount;
+      }
+
+      for (const balance of balances.balances) {
+        const total = parseFloat(balance.free) + parseFloat(balance.locked);
+        if (total > 0) {
+          // Upsert balance
+          await supabase.from('crypto_balances').upsert(
+            {
+              user_id: userId,
+              crypto_account_id: account.id,
+              asset: balance.asset,
+              free: parseFloat(balance.free),
+              locked: parseFloat(balance.locked),
+              total: total,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'crypto_account_id,asset' }
+          );
+          balancesUpdated++;
+        }
+      }
+
+      // 2. Get recent trades (last 7 days)
+      const endTime = Date.now();
+      const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
+
+      let transactionsAdded = 0;
+
+      // For simplicity, we'll get trades for major pairs (BTC, ETH, USDT, etc.)
+      const majorPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT'];
+
+      for (const symbol of majorPairs) {
+        try {
+          const trades = await signedRequest(apiKey, apiSecret, '/api/v3/myTrades', {
+            symbol,
+            startTime,
+            endTime,
+            limit: 100,
+          });
+
+          for (const trade of trades) {
+            // Check if transaction already exists
+            const { data: existing } = await supabase
+              .from('crypto_transactions')
+              .select('id')
+              .eq('external_id', `trade_${trade.id}`)
+              .from('crypto_transactions')
+              .select('id')
+              .eq('external_id', `trade_${trade.id}`)
+              .single();
+
+            if (!existing) {
+              const isBuy = trade.isBuyer;
+              const baseAsset = symbol.replace('USDT', '').replace('BUSD', '');
+
+              await supabase.from('crypto_transactions').insert({
+                user_id: userId,
+                crypto_account_id: account.id,
+                external_id: `trade_${trade.id}`,
+                type: isBuy ? 'buy' : 'sell',
+                asset: baseAsset,
+                amount: parseFloat(trade.qty),
+                price_usd: parseFloat(trade.price),
+                total_usd: parseFloat(trade.quoteQty),
+                fee_asset: trade.commissionAsset,
+                fee_amount: parseFloat(trade.commission),
+                transaction_time: new Date(trade.time).toISOString(),
+              });
+              transactionsAdded++;
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching trades for ${symbol}:`, err);
+        }
+      }
+
+      // Update last synced
+      await supabase
+        .from('crypto_accounts')
+        .update({ last_synced_at: new Date().toISOString() })
+        .eq('id', account.id);
+
+      results.push({
+        exchange: 'binance',
+        balances_updated: balancesUpdated,
+        new_transactions: transactionsAdded,
+      });
+    } catch (err) {
+      console.error(`Error syncing Binance:`, err);
+      results.push({ error: (err as Error).message });
     }
 
     return new Response(JSON.stringify({ success: true, results }), {
