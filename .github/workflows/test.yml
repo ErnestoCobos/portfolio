@@ -2,8 +2,7 @@ name: Test Financial Assistant
 
 on:
   push:
-    branches: 
-      - 'feature/**'
+    branches: [main, master]
     paths:
       - 'supabase/**'
       - 'lib/supabase.ts'
@@ -13,6 +12,7 @@ on:
     paths:
       - 'supabase/**'
       - 'lib/supabase.ts'
+      - '.github/workflows/test.yml'
 
 jobs:
   test-database:
