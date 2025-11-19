@@ -155,6 +155,25 @@ Deno.serve(async req => {
       .order('due_date', { ascending: true })
       .limit(5);
 
+    // Get crypto portfolio balances
+    const { data: cryptoBalances } = await supabaseClient
+      .from('crypto_balances')
+      .select('asset, total, value_usd')
+      .eq('user_id', userId)
+      .gt('total', 0);
+
+    const totalCryptoValue =
+      cryptoBalances?.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0) ?? 0;
+
+    // Get latest portfolio snapshot for comparison
+    const { data: latestSnapshot } = await supabaseClient
+      .from('portfolio_snapshots')
+      .select('total_value_usd, snapshot_date')
+      .eq('user_id', userId)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+      .single();
+
     const response = {
       period,
       total_balance: totalBalance,
@@ -165,6 +184,16 @@ Deno.serve(async req => {
       budget_status: budgetStatus,
       upcoming_payments: upcomingDebts ?? [],
       savings_rate: income > 0 ? Math.round(((income - expenses) / income) * 100) : 0,
+      crypto_portfolio: {
+        total_value_usd: totalCryptoValue,
+        assets:
+          cryptoBalances?.map(b => ({
+            asset: b.asset,
+            amount: b.total,
+            value_usd: b.value_usd || 0,
+          })) || [],
+        last_updated: latestSnapshot?.snapshot_date || null,
+      },
     };
 
     return new Response(JSON.stringify(response), {
