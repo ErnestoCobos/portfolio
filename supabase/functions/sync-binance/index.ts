@@ -98,13 +98,9 @@ serve(async req => {
 
       let balancesUpdated = 0;
 
-      // Get or create crypto account for this user
-      const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-      const userId = authUser?.user?.id;
-
-      if (!userId) {
-        throw new Error('Could not get user ID');
-      }
+      // Use the user ID directly (since we're using global API keys)
+      // This assumes single-user setup. For multi-user, would need different approach.
+      const userId = '68a52019-0164-4071-8d4e-556ab10aedc0'; // Your user ID
 
       // Get or create crypto_account
       let { data: account } = await supabase
