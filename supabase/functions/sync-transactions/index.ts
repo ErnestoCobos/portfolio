@@ -110,6 +110,12 @@ serve(async req => {
           .from('bank_links')
           .update({ last_synced_at: new Date().toISOString() })
           .eq('id', link.id);
+
+        // 5. Auto-Reconcile Receipts
+        const reconciledCount = await reconcileReceipts(supabase, link.user_id);
+        if (reconciledCount > 0) {
+          results.push({ account: 'Reconciliation', reconciled_receipts: reconciledCount });
+        }
       } catch (err) {
         console.error(`Error syncing link ${link.id}:`, err);
         results.push({ link: link.id, error: err.message });
@@ -126,3 +132,84 @@ serve(async req => {
     });
   }
 });
+
+// Helper function to reconcile receipts
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function reconcileReceipts(supabase: any, userId: string): Promise<number> {
+  let reconciledCount = 0;
+
+  // 1. Get unmatched documents (receipts)
+  const { data: documents } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('user_id', userId)
+    .is('transaction_id', null);
+
+  if (!documents || documents.length === 0) return 0;
+
+  // 2. Get unmatched bank transactions (last 60 days to be safe)
+  const dateLimit = new Date();
+  dateLimit.setDate(dateLimit.getDate() - 60);
+
+  const { data: transactions } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('source', 'bank_import') // Only match bank imports
+    .is('reconciled_with', null)
+    .gte('date', dateLimit.toISOString().split('T')[0]);
+
+  if (!transactions || transactions.length === 0) return 0;
+
+  // 3. Match logic
+  for (const doc of documents) {
+    if (!doc.extracted_amount || !doc.extracted_date) continue;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const match = transactions.find((tx: any) => {
+      // Amount match (±1.00 or ±1%)
+      const amountDiff = Math.abs(tx.amount - doc.extracted_amount);
+      const isAmountClose = amountDiff < 1.0 || amountDiff / tx.amount < 0.01;
+
+      // Date match (±2 days)
+      const txDate = new Date(tx.date);
+      const docDate = new Date(doc.extracted_date);
+      const dateDiffTime = Math.abs(txDate.getTime() - docDate.getTime());
+      const dateDiffDays = Math.ceil(dateDiffTime / (1000 * 60 * 60 * 24));
+      const isDateClose = dateDiffDays <= 2;
+
+      return isAmountClose && isDateClose;
+    });
+
+    if (match) {
+      // Link them
+      await supabase
+        .from('documents')
+        .update({
+          transaction_id: match.id,
+          is_matched: true,
+          processed: true,
+        })
+        .eq('id', doc.id);
+
+      await supabase
+        .from('transactions')
+        .update({
+          reconciled_with: doc.id,
+          is_reconciled: true,
+          receipt_image_url: doc.file_path, // Ideally use public URL if possible, or path
+        })
+        .eq('id', match.id);
+
+      reconciledCount++;
+
+      // Remove matched transaction from pool to avoid double matching
+      const index = transactions.indexOf(match);
+      if (index > -1) {
+        transactions.splice(index, 1);
+      }
+    }
+  }
+
+  return reconciledCount;
+}
