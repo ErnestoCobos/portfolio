@@ -10,7 +10,7 @@ async function signedRequest(
   endpoint: string,
   params: Record<string, string | number> = {}
 ) {
-  const baseUrl = 'https://api.binance.com';
+  const baseUrl = 'https://api.binance.us'; // Changed to Binance.US
   const timestamp = Date.now();
 
   // Add timestamp to params
