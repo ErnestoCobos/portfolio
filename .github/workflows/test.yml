@@ -113,8 +113,10 @@ jobs:
       - name: Get Supabase credentials
         id: supabase-creds
         run: |
-          echo "SUPABASE_URL=$(supabase status | grep 'API URL' | awk '{print $3}')" >> $GITHUB_OUTPUT
-          echo "SUPABASE_ANON_KEY=$(supabase status | grep 'anon key' | awk '{print $3}')" >> $GITHUB_OUTPUT
+          supabase status
+          ANON_KEY=$(supabase status | grep -o 'anon key: .*' | cut -d: -f2- | xargs)
+          echo "SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_OUTPUT
+          echo "Anon key extracted (first 20 chars): ${ANON_KEY:0:20}..."
 
       - name: Test Edge Functions locally
         run: |
