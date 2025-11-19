@@ -97,6 +97,22 @@ ALTER TABLE transactions
   FOREIGN KEY (reconciled_with) REFERENCES documents(id) ON DELETE SET NULL;
 
 -- ============================================
+-- PRODUCTS TABLE (must be before receipt_line_items)
+-- ============================================
+CREATE TABLE products (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  common_merchants TEXT[],
+  normalized_names TEXT[],
+  unit TEXT,
+  tags TEXT[],
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
 -- RECEIPT LINE ITEMS TABLE
 -- ============================================
 CREATE TABLE receipt_line_items (
@@ -171,27 +187,6 @@ CREATE TABLE financial_goals (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- ============================================
--- PRODUCTS TABLE
--- ============================================
-CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-  common_merchants TEXT[],
-  normalized_names TEXT[],
-  unit TEXT,
-  tags TEXT[],
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Add FK constraint for product_id in receipt_line_items
-ALTER TABLE receipt_line_items
-  ADD CONSTRAINT fk_product_id
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL;
 
 -- ============================================
 -- MERCHANT PATTERNS TABLE
