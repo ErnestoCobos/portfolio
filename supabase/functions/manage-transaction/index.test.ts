@@ -5,10 +5,9 @@ import { assertEquals, assertExists } from '../_shared/test-utils.ts';
 Deno.test('Manage Transaction: calculates balance change for expense', () => {
   const currentBalance = 10000;
   const amount = 500;
-  const type: 'expense' | 'income' = 'expense';
 
-  const balanceChange = type === 'income' ? amount : -amount;
-  const newBalance = currentBalance + balanceChange;
+  // For expense, balance decreases
+  const newBalance = currentBalance - amount;
 
   assertEquals(newBalance, 9500);
 });
@@ -16,10 +15,9 @@ Deno.test('Manage Transaction: calculates balance change for expense', () => {
 Deno.test('Manage Transaction: calculates balance change for income', () => {
   const currentBalance = 10000;
   const amount = 3000;
-  const type: 'expense' | 'income' = 'income';
 
-  const balanceChange = type === 'income' ? amount : -amount;
-  const newBalance = currentBalance + balanceChange;
+  // For income, balance increases
+  const newBalance = currentBalance + amount;
 
   assertEquals(newBalance, 13000);
 });
@@ -35,10 +33,9 @@ Deno.test('Manage Transaction: validates transaction type', () => {
 Deno.test('Manage Transaction: handles zero amount', () => {
   const currentBalance = 10000;
   const amount = 0;
-  const type: 'expense' | 'income' = 'expense';
 
-  const balanceChange = type === 'income' ? amount : -amount;
-  const newBalance = currentBalance + balanceChange;
+  // Zero amount doesn't change balance
+  const newBalance = currentBalance - amount;
 
   assertEquals(newBalance, 10000);
 });
